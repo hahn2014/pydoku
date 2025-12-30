@@ -3,20 +3,55 @@ import random
 # Online Python - IDE, Editor, Compiler, Interpreter
 
 def print_block_grid(grid):
-    print('--GRID--\n')
+    if grid.shape == (3,3,3,3):
+        flat_grid = grid.reshape(9,9)
+    else:
+        flat_grid = grid
+    
+    # Top border styling
+    print("              --GRID--               ")
+    print("╔═══╤═══╤═══╦═══╤═══╤═══╦═══╤═══╤═══╗")
     for block_row in range(3):
         for sub_row in range(3):
+            row_idx = block_row * 3 + sub_row
             row_parts = []
-            for block_col in range(3):
-                block_sub_row = ' '.join(map(str, grid[block_row, block_col, sub_row, :]))
-                row_parts.append(block_sub_row)
-                
-            print('    '.join(row_parts))
             
-        if block_row < 2:
-            sample_row = '    '.join([' '.join(['9']*3)]*3)
-            print(' ' * len(sample_row))
-        print()
+            for block_col in range(3):
+                col_start = block_col * 3
+                cells = []
+                for col_idx in range(col_start, col_start + 3):
+                    val = flat_grid[row_idx, col_idx]
+                    cells.append(" ")
+                    cells.append("X" if val == 0 else str(val)) # Blank for 0
+                    if col_idx == 2:
+                        cells.append(" ║")
+                    elif col_idx == 5:
+                        cells.append(" ║")
+                    elif col_idx == 8:
+                        cells.append(" ")
+                    else:
+                        cells.append(" │")
+                row_parts.append("".join(cells))
+            
+            # Vertical block separators
+            if block_row == 0 and sub_row == 0:
+                left = "║"
+            else:
+                left = "║" if sub_row == 0 else "║"
+            separator = ""
+            
+            line = separator.join(row_parts)
+            print("║" + line + "║")
+            
+            # Horizontal block separators
+            if row_idx == 2 or row_idx == 5:
+                print("╠═══╪═══╪═══╬═══╪═══╪═══╬═══╪═══╪═══╣")
+            elif row_idx == 8:
+                print("╚═══╧═══╧═══╩═══╧═══╧═══╩═══╧═══╧═══╝")
+            else:
+                print("╟───┼───┼───╫───┼───┼───╫───┼───┼───╢")
+                    
+            
         
 def generate_puzzle(remove_count=45, seed=None):
     #puzzle logic to fill in blank grid

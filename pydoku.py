@@ -2,6 +2,27 @@ import numpy as np
 import random
 # Online Python - IDE, Editor, Compiler, Interpreter
 
+def print_menu():
+    print("---Menu Options---\n")
+    print("quit/q/exit        - Exit the game")
+    print("menu/print/options - Print menu options")
+    print("start easy   - Begin a game in easy mode")
+    print("start hard   - Begin a game in hard mode")
+    print("start expert - Begin a game in expert mode")
+
+def parse_input(prompt):
+    if prompt in {'quit', 'exit', 'q'}:
+        return -1
+    elif prompt in {'print'}:
+        return 0
+    elif prompt in {'start easy', 'start 1'}:
+        return 1
+    elif prompt in {'start hard', 'start 2'}:
+        return 2
+    elif prompt in {'start expert', 'start 3'}:
+        return 3
+    else: return -2
+
 def print_block_grid(grid):
     if grid.shape == (3,3,3,3):
         flat_grid = grid.reshape(9,9)
@@ -101,22 +122,38 @@ def generate_puzzle(remove_count=45, seed=None):
 
 def main():
     print("Welcome to Pydoku!\n")
-    print("Now generating puzzle...")
-    grid = generate_puzzle(remove_count=45, seed=None) #remove count is difficulty
+    print_menu()
     
-    print("Puzzle Generated! now starting game. type and enter 'q/quit/exit at any time to exit game.\n\n")
     while True:
         try:
             user_input = input("> ").strip()
-            
-            if user_input.lower() in {'quit', 'exit', 'q'}:
-                print("User called system exit. Goodbye!")
+            prompt = parse_input(user_input)
+            print(f"input: {user_input} -> prompt: {prompt}")
+
+            if prompt == 0: # print menu options
+                print_menu()
+                continue
+            elif prompt == 1: # start game in easy mode
+                print("Now generating easy puzzle...")
+                grid = generate_puzzle(remove_count=40, seed=None) #remove count is difficulty
+                print("Easy Puzzle Generated! now starting game. type and enter 'q/quit/exit at any time to exit game.\n\n")
                 break
+            elif prompt == 2: # start game in hard mode
+                print("Now generating hard puzzle...")
+                grid = generate_puzzle(remove_count=60, seed=None) #remove count is difficulty
+                print("Hard Puzzle Generated! now starting game. type and enter 'q/quit/exit at any time to exit game.\n\n")
+                break
+            elif prompt == 3: # start game in expert mode
+                print("Now generating expert puzzle...")
+                grid = generate_puzzle(remove_count=70, seed=None) #remove count is difficulty
+                print("Expert Puzzle Generated! now starting game. type and enter 'q/quit/exit at any time to exit game.\n\n")
+                break
+            elif prompt == -2: # unknown command
+                print (f"Unknown command {user_input}. Please try something else")
+                
             if not user_input:
                 print("Empty Input - Try Again.")
                 continue
-            
-            print(f"Echo: {user_input.upper()}")
             
         except KeyboardInterrupt:
             print("\n\nInterupted! Goodbye.")

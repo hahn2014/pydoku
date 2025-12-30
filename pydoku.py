@@ -98,8 +98,33 @@ def generate_puzzle(remove_count=45, seed=None):
     puzzle = grid.reshape(3,3,3,3)
     return puzzle
 
-# Generate puzzle
-grid = generate_puzzle(remove_count=45, seed=None)
 
-# Print grid to screen
-print_block_grid(grid)
+def main():
+    print("Welcome to Pydoku!\n")
+    print("Now generating puzzle...")
+    grid = generate_puzzle(remove_count=45, seed=None) #remove count is difficulty
+    
+    print("Puzzle Generated! now starting game. type and enter 'q/quit/exit at any time to exit game.\n\n")
+    while True:
+        try:
+            user_input = input("> ").strip()
+            
+            if user_input.lower() in {'quit', 'exit', 'q'}:
+                print("User called system exit. Goodbye!")
+                break
+            if not user_input:
+                print("Empty Input - Try Again.")
+                continue
+            
+            print(f"Echo: {user_input.upper()}")
+            
+        except KeyboardInterrupt:
+            print("\n\nInterupted! Goodbye.")
+            break
+        except EOFError:
+            print("\n\nEnd of Input. Goodbye!")
+            break
+
+
+if __name__ == "__main__":
+    main()

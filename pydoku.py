@@ -1,4 +1,3 @@
-#!/usr/bin/env python3.13
 import numpy as np
 import random
 import time
@@ -8,11 +7,10 @@ from datetime import datetime
 
 # ANSI Color Codes
 BLUE = "\033[94m"  # Bright blue for clues
-RED = "\033[91m"  # Invalid player entries
+RED = "\033[91m"   # Invalid player entries
 BOLD = "\033[1m"
 YELLOW_BG = "\033[103m"  # Bright yellow background for cursor
 RESET = "\033[0m"
-
 
 # Cross-platform single key press reading
 def getch():
@@ -30,7 +28,6 @@ def getch():
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         return ch
 
-
 def print_menu():
     print("\033[2J\033[H", end="")
     print("Welcome to Pydoku! (CLI Mode)\n")
@@ -41,7 +38,6 @@ def print_menu():
     print("start hard/2 - Begin a game in hard mode")
     print("start expert/3 - Begin a game in expert mode")
     print("start torture/4 - Begin a game in torture mode")
-
 
 def parse_input(prompt):
     prompt = prompt.strip().lower()
@@ -60,7 +56,6 @@ def parse_input(prompt):
     else:
         return -2
 
-
 def cell_has_conflict(player_flat, row, col):
     num = player_flat[row, col]
     if num == 0:
@@ -70,10 +65,9 @@ def cell_has_conflict(player_flat, row, col):
     if np.count_nonzero(player_flat[:, col] == num) > 1:
         return True
     br, bc = 3 * (row // 3), 3 * (col // 3)
-    if np.count_nonzero(player_flat[br:br + 3, bc:bc + 3] == num) > 1:
+    if np.count_nonzero(player_flat[br:br+3, bc:bc+3] == num) > 1:
         return True
     return False
-
 
 def get_candidates(board, r, c):
     """Return set of possible numbers for empty cell (r,c) on current board."""
@@ -83,9 +77,8 @@ def get_candidates(board, r, c):
     possible -= set(board[r, :])
     possible -= set(board[:, c])
     br, bc = 3 * (r // 3), 3 * (c // 3)
-    possible -= set(board[br:br + 3, bc:bc + 3].flatten())
+    possible -= set(board[br:br+3, bc:bc+3].flatten())
     return possible
-
 
 def print_block_grid(original_puzzle, player_grid, solution, cursor=None, difficulty_name="GRID"):
     puzzle_flat = original_puzzle.reshape(9, 9)
@@ -117,43 +110,41 @@ def print_block_grid(original_puzzle, player_grid, solution, cursor=None, diffic
         else:
             print("╟───┼───┼───╫───┼───┼───╫───┼───┼───╢")
 
-
 def generate_puzzle(remove_count=45, seed=None):
     if seed is not None:
         random.seed(seed)
         np.random.seed(seed)
 
-    grid = np.zeros((9, 9), dtype=int)
+    grid = np.zeros((9,9), dtype=int)
 
     def is_valid(num, row, col):
         if num in grid[row, :]: return False
         if num in grid[:, col]: return False
-        br, bc = 3 * (row // 3), 3 * (col // 3)
-        if num in grid[br:br + 3, bc:bc + 3]: return False
+        br, bc = 3*(row//3), 3*(col//3)
+        if num in grid[br:br+3, bc:bc+3]: return False
         return True
 
     def solve(pos=0):
         if pos == 81: return True
         row, col = divmod(pos, 9)
-        nums = list(range(1, 10))
+        nums = list(range(1,10))
         random.shuffle(nums)
         for num in nums:
             if is_valid(num, row, col):
                 grid[row, col] = num
-                if solve(pos + 1): return True
+                if solve(pos+1): return True
                 grid[row, col] = 0
         return False
 
     solve()
     solution = grid.copy()
 
-    positions = [(r, c) for r in range(9) for c in range(9)]
+    positions = [(r,c) for r in range(9) for c in range(9)]
     random.shuffle(positions)
     for r, c in positions[:remove_count]:
         grid[r, c] = 0
 
-    return grid.reshape(3, 3, 3, 3), solution.reshape(3, 3, 3, 3)
-
+    return grid.reshape(3,3,3,3), solution.reshape(3,3,3,3)
 
 def play_sudoku_cli(settings):
     print(f"\nGenerating {settings['name'].capitalize()} puzzle...\n")
@@ -182,11 +173,11 @@ def play_sudoku_cli(settings):
         if not raw_mode and status is not None:
             print(f"\n{status}")
 
-        if np.array_equal(player_grid.reshape(9, 9), solution.reshape(9, 9)):
-            print("\n" + "=" * 40)
+        if np.array_equal(player_grid.reshape(9,9), solution.reshape(9,9)):
+            print("\n" + "="*40)
             print("       🎉 CONGRATULATIONS! 🎉")
             print("       You have solved the puzzle!")
-            print("=" * 40)
+            print("="*40)
             choice = input("\nPress 'q' to quit the game or any other key to return to main menu: ").strip().lower()
             if choice == 'q':
                 print("\nThanks for playing Pydoku!")
@@ -202,8 +193,8 @@ def play_sudoku_cli(settings):
                 return
             elif key in '0123456789':
                 num = int(key)
-                if original_puzzle.reshape(9, 9)[cursor_row, cursor_col] == 0:
-                    player_grid.reshape(9, 9)[cursor_row, cursor_col] = num
+                if original_puzzle.reshape(9,9)[cursor_row, cursor_col] == 0:
+                    player_grid.reshape(9,9)[cursor_row, cursor_col] = num
             elif key in {'\x1b', '\033'}:
                 try:
                     seq1 = getch()
@@ -241,11 +232,10 @@ def play_sudoku_cli(settings):
                 cursor_row = min(8, cursor_row + 1)
             elif cmd in '0123456789':
                 num = int(cmd)
-                if original_puzzle.reshape(9, 9)[cursor_row, cursor_col] == 0:
-                    player_grid.reshape(9, 9)[cursor_row, cursor_col] = num
+                if original_puzzle.reshape(9,9)[cursor_row, cursor_col] == 0:
+                    player_grid.reshape(9,9)[cursor_row, cursor_col] = num
             else:
                 status = f"\033[1;31mUnknown command: {cmd}\033[0m"
-
 
 def cli_main():
     difficulties = {
@@ -264,7 +254,7 @@ def cli_main():
                 print_menu()
                 continue
             elif prompt == -1:
-                print("\nGoodbye!")
+                print("\nNow returning to main menu. Goodbye!")
                 return
             elif prompt == -2:
                 print(f"Unknown command: {user_input!r}. Type 'menu' for options.")
@@ -279,20 +269,35 @@ def cli_main():
             print("\nGoodbye!")
             return
 
-
 def launch_gui():
     try:
         import tkinter as tk
         from tkinter import messagebox, simpledialog, Toplevel, Text
     except ImportError:
-        print("\n" + "=" * 60)
+        print("\n" + "="*60)
         print("Tkinter is not available in this environment.")
         print("Automatically falling back to CLI mode...")
-        print("=" * 60 + "\n")
+        print("="*60 + "\n")
         cli_main()
         return
 
     class SudokuGUI(tk.Tk):
+        DARK_BG = "#000000"  # Furthest background
+        MID_BG = "#1e1e1e"  # Mid-ground
+        CANVAS_BG = "#121212"  # Grid background
+        GRID_THIN = "#404040"  # Thin grid lines
+        GRID_THICK = "#606060"  # Thick grid lines
+        CLUE_COLOR = "#a9a9a9"  # Lightish dark gray for clues
+        CORRECT_COLOR = "#ffffff"  # White for correct user
+        INCORRECT_COLOR = "#ff0000"  # Bright red
+        HIGHLIGHT_ANSWER = "#e67e22"  # Darker orange for answer mode
+        HIGHLIGHT_NOTES = "#4a90e2"  # Blue for notes mode
+        PENCIL_COLOR = "#808080"  # Lighter gray for notes
+        REMAINING_COLOR = "#1b3de3" # Darker blue for the remaining numbers
+        BUTTON_BG = "#333333"  # Dark gray buttons
+        BUTTON_FG = "#878787"  # Lighter text
+        TEXT_GRAY = "#d3d3d3"  # Bright gray for labels
+
         def __init__(self):
             super().__init__()
             self.title("Pydoku - GUI Mode")
@@ -303,80 +308,82 @@ def launch_gui():
             self.multipliers = {"Easy": 1, "Hard": 2, "Expert": 3, "Torture": 4}
 
             # Menu frame (initial screen)
-            self.menu_frame = tk.Frame(self, bg="#f0f0f0")
+            self.menu_frame = tk.Frame(self, bg=self.DARK_BG)
             self.menu_frame.pack(expand=True, fill="both")
 
-            tk.Label(self.menu_frame, text="PYDOKU", font=("Arial", 72, "bold"), bg="#f0f0f0").pack(pady=50)
-            tk.Label(self.menu_frame, text="Select Difficulty", font=("Arial", 24), bg="#f0f0f0").pack(pady=20)
+            tk.Label(self.menu_frame, text="PYDOKU", font=("Arial", 82, "bold"), bg=self.DARK_BG, fg=self.HIGHLIGHT_NOTES).pack(pady=50)
+            tk.Label(self.menu_frame, text="Select Difficulty", font=("Arial", 24), bg=self.DARK_BG, fg=self.TEXT_GRAY).pack(pady=20)
 
             for diff in self.difficulties:
-                btn = tk.Button(self.menu_frame, text=diff, font=("Arial", 18), width=15, height=2,
-                                command=lambda d=diff: self.start_game(d))
+                btn = tk.Button(self.menu_frame, text=diff, font=("Arial", 18), width=15, height=2, bg=self.MID_BG,
+                                fg=self.BUTTON_FG, command=lambda d=diff: self.start_game(d))
                 btn.pack(pady=10)
 
-            tk.Button(self.menu_frame, text="View Leaderboards", font=("Arial", 16), width=20,
-                      command=self.show_leaderboard).pack(pady=30)
+            tk.Button(self.menu_frame, text="View Leaderboards", font=("Arial", 16), width=20, bg=self.MID_BG,
+                      fg=self.BUTTON_FG, command=self.show_leaderboard).pack(pady=30)
+
+            tk.Button(self.menu_frame, text="Return to CLI", font=("Arial", 16), width=20, bg=self.MID_BG, fg=self.BUTTON_FG).pack(pady=30)
 
             # Game frame (hidden initially)
-            self.game_frame = tk.Frame(self)
+            self.game_frame = tk.Frame(self, bg=self.DARK_BG)
             self.build_game_ui()
 
         def build_game_ui(self):
-            main_frame = tk.Frame(self.game_frame)
+            main_frame = tk.Frame(self.game_frame, bg=self.DARK_BG)
             main_frame.pack(padx=20, pady=20)
 
             # Left sidebar
-            left_frame = tk.Frame(main_frame)
+            left_frame = tk.Frame(main_frame, bg=self.DARK_BG)
             left_frame.pack(side="left", padx=(0, 40))
 
-            tk.Label(left_frame, text="Remaining", font=("Arial", 14, "bold")).pack(pady=(0, 10))
+            tk.Label(left_frame, text="Remaining", font=("Arial", 14, "bold"), bg=self.DARK_BG, fg=self.TEXT_GRAY).pack(pady=(0, 10))
             self.number_labels = {}
             for num in range(1, 10):
                 lbl = tk.Label(left_frame, text=str(num), font=("Arial", 48, "bold"),
-                               fg="lightblue", width=2)
+                               fg=self.REMAINING_COLOR, width=2, bg=self.DARK_BG)
                 lbl.pack(pady=6)
                 self.number_labels[num] = lbl
 
             # Right side
-            right_frame = tk.Frame(main_frame)
+            right_frame = tk.Frame(main_frame, bg=self.DARK_BG)
             right_frame.pack(side="left")
 
             # Top controls
-            control_frame = tk.Frame(right_frame)
+            control_frame = tk.Frame(right_frame, bg=self.DARK_BG)
             control_frame.pack(pady=(0, 15))
 
-            self.timer_label = tk.Label(control_frame, text="Time: 00:00", font=("Arial", 14))
+            self.timer_label = tk.Label(control_frame, text="Time: 00:00", font=("Arial", 14), bg=self.DARK_BG, fg="#ffffff")
             self.timer_label.pack(side="right", padx=20)
 
-            self.hint_button = tk.Button(control_frame, text="Hint", font=("Arial", 12),
-                                         command=self.give_hint)
+            self.hint_button = tk.Button(control_frame, text="Hint", font=("Arial", 12), bg=self.BUTTON_BG,
+                                         fg=self.BUTTON_FG, command=self.give_hint)
             self.hint_button.pack(side="right", padx=10)
 
-            self.pause_button = tk.Button(control_frame, text="Pause", font=("Arial", 12),
-                                          command=self.toggle_pause)
+            self.pause_button = tk.Button(control_frame, text="Pause", font=("Arial", 12), bg=self.BUTTON_BG,
+                                         fg=self.BUTTON_FG, command=self.toggle_pause)
             self.pause_button.pack(side="right", padx=10)
 
-            self.notes_button = tk.Button(control_frame, text="Answer Mode (N)", font=("Arial", 12),
-                                          command=self.toggle_notes)
+            self.notes_button = tk.Button(control_frame, text="Answer Mode (N)", font=("Arial", 12), bg=self.BUTTON_BG,
+                                         fg=self.BUTTON_FG, command=self.toggle_notes)
             self.notes_button.pack(side="right", padx=10)
 
-            tk.Button(control_frame, text="Leaderboards", font=("Arial", 12),
+            tk.Button(control_frame, text="Leaderboards", font=("Arial", 12), bg=self.BUTTON_BG, fg=self.BUTTON_FG,
                       command=self.show_leaderboard).pack(side="right", padx=10)
 
-            tk.Button(control_frame, text="Main Menu", font=("Arial", 12),
+            tk.Button(control_frame, text="Main Menu", font=("Arial", 12), bg=self.BUTTON_BG, fg=self.BUTTON_FG,
                       command=self.back_to_menu).pack(side="right", padx=10)
 
             # Canvas
             self.cell_size = 60
             canvas_frame = tk.Frame(right_frame)
             canvas_frame.pack()
-            self.canvas = tk.Canvas(canvas_frame, width=9 * self.cell_size, height=9 * self.cell_size,
-                                    bg="white", highlightthickness=0)
+            self.canvas = tk.Canvas(canvas_frame, width=9*self.cell_size, height=9*self.cell_size,
+                                    bg=self.CANVAS_BG, highlightthickness=0)
             self.canvas.pack()
 
             # Paused label (hidden initially)
             self.paused_label = tk.Label(canvas_frame, text="PAUSED", font=("Arial", 48, "bold"),
-                                         fg="red", bg="white")
+                                         fg=self.INCORRECT_COLOR, bg=self.CORRECT_COLOR)
 
             # Bottom status
             bottom_frame = tk.Frame(right_frame)
@@ -415,7 +422,7 @@ def launch_gui():
             if self.notes_mode:
                 self.notes_button.config(text="NOTES MODE (N)", bg="lightgreen", font=("Arial", 14, "bold"))
             else:
-                self.notes_button.config(text="Answer Mode (N)", bg="SystemButtonFace", font=("Arial", 12))
+                self.notes_button.config(text="Answer Mode (N)", bg=self.BUTTON_BG, font=("Arial", 12))
 
         def update_timer(self):
             if hasattr(self, 'timer_running') and self.timer_running and not self.paused:
@@ -428,16 +435,17 @@ def launch_gui():
             for num in range(1, 10):
                 placed_correct = sum(1 for r in range(9) for c in range(9)
                                      if self.player[r, c] == num and self.solution[r, c] == num)
-                color = "gray" if placed_correct == 9 else "lightblue"
+                color = "gray" if placed_correct == 9 else self.REMAINING_COLOR
                 self.number_labels[num].config(fg=color)
 
         def draw_grid(self):
             self.canvas.delete("grid")
             for i in range(10):
                 width = 5 if i % 3 == 0 else 1
-                self.canvas.create_line(i * self.cell_size, 0, i * self.cell_size, 9 * self.cell_size,
+                fill_color = self.GRID_THICK if i % 3 == 0 else self.GRID_THIN
+                self.canvas.create_line(i * self.cell_size, 0, i * self.cell_size, 9 * self.cell_size, fill=fill_color,
                                         width=width, tags="grid")
-                self.canvas.create_line(0, i * self.cell_size, 9 * self.cell_size, i * self.cell_size,
+                self.canvas.create_line(0, i * self.cell_size, 9 * self.cell_size, i * self.cell_size, fill=fill_color,
                                         width=width, tags="grid")
 
         def draw_numbers(self):
@@ -446,13 +454,13 @@ def launch_gui():
                 for c in range(9):
                     val = self.player[r, c]
                     if val != 0:
-                        color = "navy" if self.original[r, c] != 0 else \
-                            ("red" if cell_has_conflict(self.player, r, c) else "black")
+                        color = self.CLUE_COLOR if self.original[r, c] != 0 else \
+                            (self.INCORRECT_COLOR if cell_has_conflict(self.player, r, c) else self.CORRECT_COLOR)
                         x = c * self.cell_size + self.cell_size // 2
                         y = r * self.cell_size + self.cell_size // 2
                         self.canvas.create_text(x, y, text=str(val), tags="numbers",
                                                 fill=color, font=("Arial", 32, "bold"))
-
+                    # Pencil marks (only on empty cells)
                     if val == 0 and self.notes[r][c]:
                         for note in sorted(self.notes[r][c]):
                             mini_r = (note - 1) // 3
@@ -462,12 +470,12 @@ def launch_gui():
                             x = c * self.cell_size + offset_x
                             y = r * self.cell_size + offset_y
                             self.canvas.create_text(x, y, text=str(note), tags="numbers",
-                                                    fill="gray50", font=("Arial", 12))
+                                                    fill=self.PENCIL_COLOR, font=("Arial", 12))
 
         def highlight_selected(self):
             self.canvas.delete("highlight")
             r, c = self.selected
-            outline_color = "blue" if self.notes_mode else "orange"
+            outline_color = self.HIGHLIGHT_ANSWER if not self.notes_mode else self.HIGHLIGHT_NOTES
             self.canvas.create_rectangle(
                 c * self.cell_size + 4, r * self.cell_size + 4,
                 (c + 1) * self.cell_size - 4, (r + 1) * self.cell_size - 4,
@@ -645,13 +653,12 @@ def launch_gui():
     app.update_timer()
     app.mainloop()
 
-
 def mode_selection():
     while True:
         print("\033[2J\033[H", end="")
-        print("=" * 55)
+        print("="*55)
         print("               Welcome to Pydoku!")
-        print("=" * 55)
+        print("="*55)
         print()
         print("1 - CLI Mode      (Terminal - works everywhere)")
         print("2 - GUI Mode      (Graphical - requires local run)")
@@ -670,7 +677,6 @@ def mode_selection():
         else:
             print("\nInvalid choice.")
             input("Press Enter to continue...")
-
 
 if __name__ == "__main__":
     args = sys.argv[1:]

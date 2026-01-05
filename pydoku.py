@@ -1,6 +1,8 @@
+#!/usr/bin/env python3.13
 import numpy as np
 import random
 import time
+import math
 import sys
 import os
 from datetime import datetime
@@ -290,8 +292,10 @@ def launch_gui():
         CLUE_COLOR = "#a9a9a9"  # Lightish dark gray for clues
         CORRECT_COLOR = "#ffffff"  # White for correct user
         INCORRECT_COLOR = "#ff0000"  # Bright red
+        HIGHLIGHT_CURSOR = "#606060" # Cursor cell highlight
         HIGHLIGHT_ANSWER = "#e67e22"  # Darker orange for answer mode
         HIGHLIGHT_NOTES = "#4a90e2"  # Blue for notes mode
+        HIGHLIGHT_ALIGN = "#4c9c61" # Blue for alignment rows/columns/blocks
         PENCIL_COLOR = "#808080"  # Lighter gray for notes
         REMAINING_COLOR = "#1b3de3" # Darker blue for the remaining numbers
         BUTTON_BG = "#333333"  # Dark gray buttons
@@ -322,11 +326,17 @@ def launch_gui():
             tk.Button(self.menu_frame, text="View Leaderboards", font=("Arial", 16), width=20, bg=self.MID_BG,
                       fg=self.BUTTON_FG, command=self.show_leaderboard).pack(pady=30)
 
-            tk.Button(self.menu_frame, text="Return to CLI", font=("Arial", 16), width=20, bg=self.MID_BG, fg=self.BUTTON_FG).pack(pady=30)
+            tk.Button(self.menu_frame, text="Return to CLI", font=("Arial", 16), width=20, bg=self.MID_BG, fg=self.BUTTON_FG,
+                      command=self.stop_ui).pack(pady=30)
 
             # Game frame (hidden initially)
             self.game_frame = tk.Frame(self, bg=self.DARK_BG)
             self.build_game_ui()
+
+        def stop_ui(self):
+            self.menu_frame.destroy()
+            self.destroy()
+            mode_selection()
 
         def build_game_ui(self):
             main_frame = tk.Frame(self.game_frame, bg=self.DARK_BG)
@@ -355,22 +365,22 @@ def launch_gui():
             self.timer_label = tk.Label(control_frame, text="Time: 00:00", font=("Arial", 14), bg=self.DARK_BG, fg="#ffffff")
             self.timer_label.pack(side="right", padx=20)
 
-            self.hint_button = tk.Button(control_frame, text="Hint", font=("Arial", 12), bg=self.BUTTON_BG,
+            self.hint_button = tk.Button(control_frame, text="Hint", font=("Arial", 12, "bold"), bg=self.BUTTON_BG,
                                          fg=self.BUTTON_FG, command=self.give_hint)
             self.hint_button.pack(side="right", padx=10)
 
-            self.pause_button = tk.Button(control_frame, text="Pause", font=("Arial", 12), bg=self.BUTTON_BG,
+            self.pause_button = tk.Button(control_frame, text="Pause", font=("Arial", 12, "bold"), bg=self.BUTTON_BG,
                                          fg=self.BUTTON_FG, command=self.toggle_pause)
             self.pause_button.pack(side="right", padx=10)
 
-            self.notes_button = tk.Button(control_frame, text="Answer Mode (N)", font=("Arial", 12), bg=self.BUTTON_BG,
+            self.notes_button = tk.Button(control_frame, text="Answer Mode (N)", font=("Arial", 12, "bold"), bg=self.BUTTON_BG,
                                          fg=self.BUTTON_FG, command=self.toggle_notes)
             self.notes_button.pack(side="right", padx=10)
 
-            tk.Button(control_frame, text="Leaderboards", font=("Arial", 12), bg=self.BUTTON_BG, fg=self.BUTTON_FG,
+            tk.Button(control_frame, text="Leaderboards", font=("Arial", 12, "bold"), bg=self.BUTTON_BG, fg=self.BUTTON_FG,
                       command=self.show_leaderboard).pack(side="right", padx=10)
 
-            tk.Button(control_frame, text="Main Menu", font=("Arial", 12), bg=self.BUTTON_BG, fg=self.BUTTON_FG,
+            tk.Button(control_frame, text="Main Menu", font=("Arial", 12, "bold"), bg=self.BUTTON_BG, fg=self.BUTTON_FG,
                       command=self.back_to_menu).pack(side="right", padx=10)
 
             # Canvas
@@ -383,7 +393,7 @@ def launch_gui():
 
             # Paused label (hidden initially)
             self.paused_label = tk.Label(canvas_frame, text="PAUSED", font=("Arial", 48, "bold"),
-                                         fg=self.INCORRECT_COLOR, bg=self.CORRECT_COLOR)
+                                         fg=self.INCORRECT_COLOR, bg=self.MID_BG)
 
             # Bottom status
             bottom_frame = tk.Frame(right_frame)
@@ -420,7 +430,7 @@ def launch_gui():
         def toggle_notes(self):
             self.notes_mode = not self.notes_mode
             if self.notes_mode:
-                self.notes_button.config(text="NOTES MODE (N)", bg="lightgreen", font=("Arial", 14, "bold"))
+                self.notes_button.config(text="NOTES MODE (N)", bg=self.HIGHLIGHT_ALIGN, font=("Arial", 14, "bold"))
             else:
                 self.notes_button.config(text="Answer Mode (N)", bg=self.BUTTON_BG, font=("Arial", 12))
 
@@ -481,6 +491,37 @@ def launch_gui():
                 (c + 1) * self.cell_size - 4, (r + 1) * self.cell_size - 4,
                 outline=outline_color, width=4, tags="highlight"
             )
+            self.highlight_directionals()
+
+        def highlight_directionals(self):
+            self.canvas.delete("highlight_directionals")
+            r, c = self.selected
+            block_y = math.floor((r/9)*3)
+            block_x = math.floor((c/9)*3)
+            block_top = 0 + (block_y * (self.cell_size * 3))
+            block_bottom = block_top + (self.cell_size * 3)
+            block_left = 0 + (block_x * (self.cell_size * 3))
+            block_right = block_left + (self.cell_size * 3)
+
+            # Horizontal Line
+            self.canvas.create_rectangle(
+                0, r * self.cell_size + 4,
+                9 * self.cell_size, (r + 1) * self.cell_size - 4,
+                fill=self.HIGHLIGHT_ALIGN, width=4, tags="highlight_directionals"
+            )
+            # Vertical Line
+            self.canvas.create_rectangle(
+                c * self.cell_size + 4, 0,
+                (c + 1) * self.cell_size - 4, 9 * self.cell_size,
+                fill=self.HIGHLIGHT_ALIGN, width=4, tags="highlight_directionals"
+            )
+            # Block
+            self.canvas.create_rectangle(
+                block_left, block_top, block_right, block_bottom,
+                fill=self.HIGHLIGHT_ALIGN, width=4, tags="highlight_directionals"
+            )
+            self.canvas.tag_lower("highlight_directionals")
+
 
         def new_game(self, diff_name):
             remove_count = self.remove_counts[diff_name]
@@ -507,11 +548,12 @@ def launch_gui():
             self.toggle_notes()  # Back to off (ensures correct style)
             self.notes = [[set() for _ in range(9)] for _ in range(9)]
 
+            self.selected = (0, 0)
             self.draw_grid()
+            self.highlight_selected()
+            self.highlight_directionals()
             self.draw_numbers()
             self.update_remaining()
-            self.selected = (0, 0)
-            self.highlight_selected()
 
         def give_hint(self):
             empties = [(r, c) for r in range(9) for c in range(9) if self.player[r, c] == 0]
@@ -596,6 +638,7 @@ def launch_gui():
 
             self.selected = (r, c)
             self.highlight_selected()
+            self.highlight_directionals()
             if changed:
                 self.draw_numbers()
                 self.update_remaining()
@@ -680,12 +723,15 @@ def mode_selection():
 
 if __name__ == "__main__":
     args = sys.argv[1:]
+    args_counted = False
 
-    if args:
+    if args and not args_counted:
         if '-g' in args or '--gui' in args:
             launch_gui()
+            args_counted = True
         elif '-c' in args or '--cli' in args:
             cli_main()
+            args_counted = True
         else:
             print("Usage: python pydoku.py [-c | --cli | -g | --gui]")
             sys.exit(1)

@@ -304,6 +304,7 @@ def launch_gui():
 
         def __init__(self):
             super().__init__()
+            self.selected_num = None
             self.title("Pydoku - GUI Mode")
             self.resizable(False, False)
 
@@ -450,6 +451,7 @@ def launch_gui():
 
         def draw_grid(self):
             self.canvas.delete("grid")
+            self.selected_num = self.player[self.selected]  # get the current num located in (r,c)
             for i in range(10):
                 width = 5 if i % 3 == 0 else 1
                 fill_color = self.GRID_THICK if i % 3 == 0 else self.GRID_THIN
@@ -458,14 +460,19 @@ def launch_gui():
                 self.canvas.create_line(0, i * self.cell_size, 9 * self.cell_size, i * self.cell_size, fill=fill_color,
                                         width=width, tags="grid")
 
+        # TODO: when a cell with an integer is highlighted, we need to highlight like integers across the board.
+        #      We also need to set correct answers to a standard color (same as generated cells) for consistency.
         def draw_numbers(self):
             self.canvas.delete("numbers")
             for r in range(9):
                 for c in range(9):
                     val = self.player[r, c]
-                    if val != 0:
+                    if val != 0: # not an empty cell, a user-defined int has been recorded
                         color = self.CLUE_COLOR if self.original[r, c] != 0 else \
-                            (self.INCORRECT_COLOR if cell_has_conflict(self.player, r, c) else self.CORRECT_COLOR)
+                            (self.INCORRECT_COLOR if cell_has_conflict(self.player, r, c) else self.CLUE_COLOR)
+                        if val == self.selected_num and self.selected_num != 0 and (val == self.solution[r, c]): # if the current index of the grid is a selected int
+                            color = self.CORRECT_COLOR # make all of like integers stand out more
+
                         x = c * self.cell_size + self.cell_size // 2
                         y = r * self.cell_size + self.cell_size // 2
                         self.canvas.create_text(x, y, text=str(val), tags="numbers",
@@ -485,6 +492,7 @@ def launch_gui():
         def highlight_selected(self):
             self.canvas.delete("highlight")
             r, c = self.selected
+            self.selected_num = self.player[self.selected]  # get the current num located in (r,c)
             outline_color = self.HIGHLIGHT_ANSWER if not self.notes_mode else self.HIGHLIGHT_NOTES
             self.canvas.create_rectangle(
                 c * self.cell_size + 4, r * self.cell_size + 4,
@@ -549,6 +557,7 @@ def launch_gui():
             self.notes = [[set() for _ in range(9)] for _ in range(9)]
 
             self.selected = (0, 0)
+            self.selected_num = self.player[self.selected] # get the current num located in (0,0)
             self.draw_grid()
             self.highlight_selected()
             self.highlight_directionals()
@@ -564,6 +573,7 @@ def launch_gui():
             correct = self.solution[r, c]
             self.player[r, c] = correct
             self.hinted.add((r, c))
+            self.selected_num = self.player[self.selected]  # get the current num located in (r,c)
             self.draw_numbers()
             self.update_remaining()
             self.check_win()
@@ -575,6 +585,8 @@ def launch_gui():
             r = event.y // self.cell_size
             if 0 <= r < 9 and 0 <= c < 9:
                 self.selected = (r, c)
+                self.selected_num = self.player[self.selected]  # get the current num located in (0,0)
+                self.draw_numbers()
                 self.highlight_selected()
 
         def on_key_press(self, event):
@@ -628,7 +640,7 @@ def launch_gui():
                             old_conflict = cell_has_conflict(self.player, r, c)
                             self.player[r, c] = 0
                             if old_conflict and not cell_has_conflict(self.player, r, c):
-                                self.mistakes = max(0, self.mistakes - 1)
+                                self.mistakes = max(0, self.mistakes - 1) #possibly remove this, resets a mistake when the correct int is inputted
                                 self.mistakes_label.config(text=f"Mistakes: {self.mistakes}")
                             changed = True
                     else:
@@ -637,10 +649,11 @@ def launch_gui():
                             changed = True
 
             self.selected = (r, c)
+            self.selected_num = self.player[self.selected]  # get the current num located in (r,c)
+            self.draw_numbers()
             self.highlight_selected()
             self.highlight_directionals()
             if changed:
-                self.draw_numbers()
                 self.update_remaining()
                 self.check_win()
 

@@ -14,50 +14,6 @@ BOLD = "\033[1m"
 YELLOW_BG = "\033[103m"  # Bright yellow background for cursor
 RESET = "\033[0m"
 
-# Cross-platform single key press reading
-def getch():
-    if os.name == 'nt':
-        import msvcrt
-        return msvcrt.getch().decode('utf-8', errors='ignore')
-    else:
-        import tty, termios
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        try:
-            tty.setraw(sys.stdin.fileno())
-            ch = sys.stdin.read(1)
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        return ch
-
-def print_menu():
-    print("\033[2J\033[H", end="")
-    print("Welcome to Pydoku! (CLI Mode)\n")
-    print("---Menu Options---\n")
-    print("quit/q/exit/e - Exit the game")
-    print("menu/print/options/m/p/o - Print menu options")
-    print("start easy/1 - Begin a game in easy mode")
-    print("start hard/2 - Begin a game in hard mode")
-    print("start expert/3 - Begin a game in expert mode")
-    print("start torture/4 - Begin a game in torture mode")
-
-def parse_input(prompt):
-    prompt = prompt.strip().lower()
-    if prompt in {'quit', 'exit', 'q', 'e'}:
-        return -1
-    elif prompt in {'print', 'menu', 'options', 'p', 'm', 'o'}:
-        return 0
-    elif prompt in {'start easy', '1'}:
-        return 1
-    elif prompt in {'start hard', '2'}:
-        return 2
-    elif prompt in {'start expert', '3'}:
-        return 3
-    elif prompt in {'start torture', '4'}:
-        return 4
-    else:
-        return -2
-
 def cell_has_conflict(player_flat, row, col):
     num = player_flat[row, col]
     if num == 0:
@@ -70,48 +26,6 @@ def cell_has_conflict(player_flat, row, col):
     if np.count_nonzero(player_flat[br:br+3, bc:bc+3] == num) > 1:
         return True
     return False
-
-def get_candidates(board, r, c):
-    """Return set of possible numbers for empty cell (r,c) on current board."""
-    if board[r, c] != 0:
-        return set()
-    possible = set(range(1, 10))
-    possible -= set(board[r, :])
-    possible -= set(board[:, c])
-    br, bc = 3 * (r // 3), 3 * (c // 3)
-    possible -= set(board[br:br+3, bc:bc+3].flatten())
-    return possible
-
-def print_block_grid(original_puzzle, player_grid, solution, cursor=None, difficulty_name="GRID"):
-    puzzle_flat = original_puzzle.reshape(9, 9)
-    player_flat = player_grid.reshape(9, 9)
-    print(f" --{difficulty_name.upper()}-- ")
-    print("╔═══╤═══╤═══╦═══╤═══╤═══╦═══╤═══╤═══╗")
-    for i in range(9):
-        line = "║"
-        for j in range(9):
-            is_clue = puzzle_flat[i, j] != 0
-            val = player_flat[i, j]
-            content = "   " if val == 0 else f" {val} "
-            is_cursor = cursor == (i, j)
-            if is_cursor:
-                cell = f"{YELLOW_BG}{BOLD}{content}{RESET}"
-            elif is_clue:
-                cell = f"{BLUE}{content}{RESET}"
-            elif val != 0 and cell_has_conflict(player_flat, i, j):
-                cell = f"{RED}{content}{RESET}"
-            else:
-                cell = content
-            line += cell
-            line += "║" if j % 3 == 2 else "│"
-        print(line)
-        if i in (2, 5):
-            print("╠═══╪═══╪═══╬═══╪═══╪═══╬═══╪═══╪═══╣")
-        elif i == 8:
-            print("╚═══╧═══╧═══╩═══╧═══╧═══╩═══╧═══╧═══╝")
-        else:
-            print("╟───┼───┼───╫───┼───┼───╫───┼───┼───╢")
-
 def generate_puzzle(remove_count=45, seed=None):
     if seed is not None:
         random.seed(seed)
@@ -148,128 +62,202 @@ def generate_puzzle(remove_count=45, seed=None):
 
     return grid.reshape(3,3,3,3), solution.reshape(3,3,3,3)
 
-def play_sudoku_cli(settings):
-    print(f"\nGenerating {settings['name'].capitalize()} puzzle...\n")
-    original_puzzle, solution = generate_puzzle(remove_count=settings['remove_count'])
-    player_grid = original_puzzle.copy()
-    difficulty_name = settings['name'].capitalize()
+class SudokuCLI:
+    def __init__(self):
+        self.difficulties = {
+            1: {"name": "easy", "remove_count": 25},
+            2: {"name": "hard", "remove_count": 40},
+            3: {"name": "expert", "remove_count": 50},
+            4: {"name": "torture", "remove_count": 65}
+        }
 
-    cursor_row, cursor_col = 0, 0
-    raw_mode = sys.stdin.isatty()
-    status = None
-
-    print("\033[2J\033[H", end="")
-    if raw_mode:
-        print("Arrow keys to move | 1-9 to place | 0 to clear | q to quit to menu")
-    else:
-        print("j = left | l = right | i = up | k = down")
-        print("1-9 to place | 0 to clear | q to quit to menu")
-    print("Invalid entries will appear in red.\n")
-    input("Press Enter to start...")
-
-    while True:
-        print("\033[2J\033[H", end="")
-        print_block_grid(original_puzzle, player_grid, solution,
-                         cursor=(cursor_row, cursor_col), difficulty_name=difficulty_name)
-
-        if not raw_mode and status is not None:
-            print(f"\n{status}")
-
-        if np.array_equal(player_grid.reshape(9,9), solution.reshape(9,9)):
-            print("\n" + "="*40)
-            print("       🎉 CONGRATULATIONS! 🎉")
-            print("       You have solved the puzzle!")
-            print("="*40)
-            choice = input("\nPress 'q' to quit the game or any other key to return to main menu: ").strip().lower()
-            if choice == 'q':
-                print("\nThanks for playing Pydoku!")
-                sys.exit(0)
-            else:
-                return
-
-        if raw_mode:
-            key = getch()
-            if not key:
-                continue
-            if key == 'q':
-                return
-            elif key in '0123456789':
-                num = int(key)
-                if original_puzzle.reshape(9,9)[cursor_row, cursor_col] == 0:
-                    player_grid.reshape(9,9)[cursor_row, cursor_col] = num
-            elif key in {'\x1b', '\033'}:
-                try:
-                    seq1 = getch()
-                    seq2 = getch()
-                    arrow = key + seq1 + seq2
-                    if arrow in {'\x1b[A', '\033[A'}:
-                        cursor_row = max(0, cursor_row - 1)
-                    elif arrow in {'\x1b[B', '\033[B'}:
-                        cursor_row = min(8, cursor_row + 1)
-                    elif arrow in {'\x1b[C', '\033[C'}:
-                        cursor_col = min(8, cursor_col + 1)
-                    elif arrow in {'\x1b[D', '\033[D'}:
-                        cursor_col = max(0, cursor_col - 1)
-                except:
-                    pass
+    # Cross-platform single key press reading
+    def getch(self):
+        if os.name == 'nt':
+            import msvcrt
+            return msvcrt.getch().decode('utf-8', errors='ignore')
         else:
+            import tty, termios
+            fd = sys.stdin.fileno()
+            old_settings = termios.tcgetattr(fd)
             try:
-                cmd = input("\n> ").strip().lower()
-            except (KeyboardInterrupt, EOFError):
-                return
-
-            status = None
-            if not cmd:
-                status = "\033[1;33mEmpty input - please enter a command.\033[0m"
-                continue
-            if cmd == 'q':
-                return
-            elif cmd == 'j':
-                cursor_col = max(0, cursor_col - 1)
-            elif cmd == 'l':
-                cursor_col = min(8, cursor_col + 1)
-            elif cmd == 'i':
-                cursor_row = max(0, cursor_row - 1)
-            elif cmd == 'k':
-                cursor_row = min(8, cursor_row + 1)
-            elif cmd in '0123456789':
-                num = int(cmd)
-                if original_puzzle.reshape(9,9)[cursor_row, cursor_col] == 0:
-                    player_grid.reshape(9,9)[cursor_row, cursor_col] = num
+                tty.setraw(sys.stdin.fileno())
+                ch = sys.stdin.read(1)
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+            return ch
+    def print_menu(self):
+        print("\033[2J\033[H", end="")
+        print("Welcome to Pydoku! (CLI Mode)\n")
+        print("---Menu Options---\n")
+        print("quit/q/exit/e - Exit the game")
+        print("menu/print/options/m/p/o - Print menu options")
+        print("start easy/1 - Begin a game in easy mode")
+        print("start hard/2 - Begin a game in hard mode")
+        print("start expert/3 - Begin a game in expert mode")
+        print("start torture/4 - Begin a game in torture mode")
+    def parse_input(self, prompt):
+        prompt = prompt.strip().lower()
+        if prompt in {'quit', 'exit', 'q', 'e'}:
+            return -1
+        elif prompt in {'print', 'menu', 'options', 'p', 'm', 'o'}:
+            return 0
+        elif prompt in {'start easy', '1'}:
+            return 1
+        elif prompt in {'start hard', '2'}:
+            return 2
+        elif prompt in {'start expert', '3'}:
+            return 3
+        elif prompt in {'start torture', '4'}:
+            return 4
+        else:
+            return -2
+    def print_block_grid(self, original_puzzle, player_grid, solution, cursor=None, difficulty_name="GRID"):
+        puzzle_flat = original_puzzle.reshape(9, 9)
+        player_flat = player_grid.reshape(9, 9)
+        print(f" --{difficulty_name.upper()}-- ")
+        print("╔═══╤═══╤═══╦═══╤═══╤═══╦═══╤═══╤═══╗")
+        for i in range(9):
+            line = "║"
+            for j in range(9):
+                is_clue = puzzle_flat[i, j] != 0
+                val = player_flat[i, j]
+                content = "   " if val == 0 else f" {val} "
+                is_cursor = cursor == (i, j)
+                if is_cursor:
+                    cell = f"{YELLOW_BG}{BOLD}{content}{RESET}"
+                elif is_clue:
+                    cell = f"{BLUE}{content}{RESET}"
+                elif val != 0 and cell_has_conflict(player_flat, i, j):
+                    cell = f"{RED}{content}{RESET}"
+                else:
+                    cell = content
+                line += cell
+                line += "║" if j % 3 == 2 else "│"
+            print(line)
+            if i in (2, 5):
+                print("╠═══╪═══╪═══╬═══╪═══╪═══╬═══╪═══╪═══╣")
+            elif i == 8:
+                print("╚═══╧═══╧═══╩═══╧═══╧═══╩═══╧═══╧═══╝")
             else:
-                status = f"\033[1;31mUnknown command: {cmd}\033[0m"
+                print("╟───┼───┼───╫───┼───┼───╫───┼───┼───╢")
+    def run(self):
+        while True:
+            self.print_menu()
+            try:
+                user_input = input("> ").strip().lower()
+                prompt = self.parse_input(user_input)
+                if prompt == 0:
+                    continue
+                elif prompt == -1:
+                    print("\nNow returning to main menu. Goodbye!")
+                    break
+                elif prompt == -2:
+                    print(f"Unknown command: {user_input!r}. Type 'menu' for options.")
+                    continue
+                elif prompt in self.difficulties:
+                    self.play_game(self.difficulties[prompt])
 
-def cli_main():
-    difficulties = {
-        1: {"name": "easy", "remove_count": 25},
-        2: {"name": "hard", "remove_count": 40},
-        3: {"name": "expert", "remove_count": 50},
-        4: {"name": "torture", "remove_count": 65}
-    }
+                if not user_input:
+                    print("Empty input - try again.")
 
-    while True:
-        print_menu()
-        try:
-            user_input = input("> ").strip().lower()
-            prompt = parse_input(user_input)
-            if prompt == 0:
-                print_menu()
-                continue
-            elif prompt == -1:
-                print("\nNow returning to main menu. Goodbye!")
-                return
-            elif prompt == -2:
-                print(f"Unknown command: {user_input!r}. Type 'menu' for options.")
-                continue
-            elif prompt in difficulties:
-                play_sudoku_cli(difficulties[prompt])
+            except (KeyboardInterrupt, EOFError):
+                print("\nGoodbye!")
+                break
+    def play_game(self, settings):
+        print(f"\nGenerating {settings['name'].capitalize()} puzzle...\n")
+        original_puzzle, solution = generate_puzzle(remove_count=settings['remove_count'])
+        player_grid = original_puzzle.copy()
+        difficulty_name = settings['name'].capitalize()
 
-            if not user_input:
-                print("Empty input - try again.")
+        cursor_row, cursor_col = 0, 0
+        raw_mode = sys.stdin.isatty()
+        status = None
 
-        except (KeyboardInterrupt, EOFError):
-            print("\nGoodbye!")
-            return
+        print("\033[2J\033[H", end="")
+        if raw_mode:
+            print("Arrow keys to move | 1-9 to place | 0 to clear | q to quit to menu")
+        else:
+            print("j = left | l = right | i = up | k = down")
+            print("1-9 to place | 0 to clear | q to quit to menu")
+        print("Invalid entries will appear in red.\n")
+        input("Press Enter to start...")
+
+        while True:
+            print("\033[2J\033[H", end="")
+            self.print_block_grid(original_puzzle, player_grid, solution,
+                             cursor=(cursor_row, cursor_col), difficulty_name=difficulty_name)
+
+            if not raw_mode and status is not None:
+                print(f"\n{status}")
+
+            if np.array_equal(player_grid.reshape(9,9), solution.reshape(9,9)):
+                print("\n" + "="*40)
+                print("       🎉 CONGRATULATIONS! 🎉")
+                print("       You have solved the puzzle!")
+                print("="*40)
+                choice = input("\nPress 'q' to quit the game or any other key to return to main menu: ").strip().lower()
+                if choice == 'q':
+                    print("\nThanks for playing Pydoku!")
+                    sys.exit(0)
+                else:
+                    return
+
+            if raw_mode:
+                key = self.getch()
+                if not key:
+                    continue
+                if key == 'q':
+                    return
+                elif key in '0123456789':
+                    num = int(key)
+                    if original_puzzle.reshape(9,9)[cursor_row, cursor_col] == 0:
+                        player_grid.reshape(9,9)[cursor_row, cursor_col] = num
+                elif key in {'\x1b', '\033'}:
+                    try:
+                        seq1 = self.getch()
+                        seq2 = self.getch()
+                        arrow = key + seq1 + seq2
+                        if arrow in {'\x1b[A', '\033[A'}:
+                            cursor_row = max(0, cursor_row - 1)
+                        elif arrow in {'\x1b[B', '\033[B'}:
+                            cursor_row = min(8, cursor_row + 1)
+                        elif arrow in {'\x1b[C', '\033[C'}:
+                            cursor_col = min(8, cursor_col + 1)
+                        elif arrow in {'\x1b[D', '\033[D'}:
+                            cursor_col = max(0, cursor_col - 1)
+                    except:
+                        pass
+            else:
+                try:
+                    cmd = input("\n> ").strip().lower()
+                except (KeyboardInterrupt, EOFError):
+                    return
+
+                status = None
+                if not cmd:
+                    status = "\033[1;33mEmpty input - please enter a command.\033[0m"
+                    continue
+                if cmd == 'q':
+                    return
+                elif cmd == 'j':
+                    cursor_col = max(0, cursor_col - 1)
+                elif cmd == 'l':
+                    cursor_col = min(8, cursor_col + 1)
+                elif cmd == 'i':
+                    cursor_row = max(0, cursor_row - 1)
+                elif cmd == 'k':
+                    cursor_row = min(8, cursor_row + 1)
+                elif cmd in '0123456789':
+                    num = int(cmd)
+                    if original_puzzle.reshape(9,9)[cursor_row, cursor_col] == 0:
+                        player_grid.reshape(9,9)[cursor_row, cursor_col] = num
+                else:
+                    status = f"\033[1;31mUnknown command: {cmd}\033[0m"
+
+def launch_cli():
+    app = SudokuCLI()
+    app.run()
 
 def launch_gui():
     try:
@@ -280,7 +268,7 @@ def launch_gui():
         print("Tkinter is not available in this environment.")
         print("Automatically falling back to CLI mode...")
         print("="*60 + "\n")
-        cli_main()
+        launch_cli()
         return
 
     class SudokuGUI(tk.Tk):
@@ -295,11 +283,11 @@ def launch_gui():
         HIGHLIGHT_CURSOR = "#606060" # Cursor cell highlight
         HIGHLIGHT_ANSWER = "#e67e22"  # Darker orange for answer mode
         HIGHLIGHT_NOTES = "#4a90e2"  # Blue for notes mode
-        HIGHLIGHT_ALIGN = "#4c9c61" # Blue for alignment rows/columns/blocks
+        HIGHLIGHT_ALIGN = "#2c3e50"  # Subtle dark blue-gray for highlights (replaced obnoxious green)
         PENCIL_COLOR = "#808080"  # Lighter gray for notes
         REMAINING_COLOR = "#1b3de3" # Darker blue for the remaining numbers
         BUTTON_BG = "#333333"  # Dark gray buttons
-        BUTTON_FG = "#878787"  # Lighter text
+        BUTTON_FG = "#d3d3d3"  # Lighter gray for better visibility
         TEXT_GRAY = "#d3d3d3"  # Bright gray for labels
 
         def __init__(self):
@@ -307,6 +295,7 @@ def launch_gui():
             self.selected_num = None
             self.title("Pydoku - GUI Mode")
             self.resizable(False, False)
+            self.protocol("WM_DELETE_WINDOW", self.stop_ui)
 
             self.difficulties = ["Easy", "Hard", "Expert", "Torture"]
             self.remove_counts = {"Easy": 25, "Hard": 40, "Expert": 50, "Torture": 65}
@@ -333,31 +322,31 @@ def launch_gui():
             # Game frame (hidden initially)
             self.game_frame = tk.Frame(self, bg=self.DARK_BG)
             self.build_game_ui()
-
         def stop_ui(self):
             self.menu_frame.destroy()
             self.destroy()
-            mode_selection()
-
         def build_game_ui(self):
             main_frame = tk.Frame(self.game_frame, bg=self.DARK_BG)
             main_frame.pack(padx=20, pady=20)
 
-            # Left sidebar
-            left_frame = tk.Frame(main_frame, bg=self.DARK_BG)
-            left_frame.pack(side="left", padx=(0, 40))
+            # Left sidebar (remaining numbers with border)
+            left_frame = tk.Frame(main_frame, bg=self.MID_BG, bd=2, relief="raised")
+            left_frame.pack(side="left", padx=(0, 40), pady=20)
 
-            tk.Label(left_frame, text="Remaining", font=("Arial", 14, "bold"), bg=self.DARK_BG, fg=self.TEXT_GRAY).pack(pady=(0, 10))
+            tk.Label(left_frame, text="Remaining", font=("Arial", 14, "bold"), bg=self.MID_BG, fg=self.TEXT_GRAY).pack(pady=(0, 10))
             self.number_labels = {}
             for num in range(1, 10):
                 lbl = tk.Label(left_frame, text=str(num), font=("Arial", 48, "bold"),
-                               fg=self.REMAINING_COLOR, width=2, bg=self.DARK_BG)
+                               fg=self.REMAINING_COLOR, width=2, bg=self.MID_BG)
                 lbl.pack(pady=6)
                 self.number_labels[num] = lbl
 
             # Right side
             right_frame = tk.Frame(main_frame, bg=self.DARK_BG)
             right_frame.pack(side="left")
+
+            # Title label
+            tk.Label(right_frame, text="Pydoku", font=("Arial", 48, "bold"), bg=self.DARK_BG, fg=self.HIGHLIGHT_NOTES).pack(pady=(20, 10))
 
             # Top controls
             control_frame = tk.Frame(right_frame, bg=self.DARK_BG)
@@ -384,10 +373,10 @@ def launch_gui():
             tk.Button(control_frame, text="Main Menu", font=("Arial", 12, "bold"), bg=self.BUTTON_BG, fg=self.BUTTON_FG,
                       command=self.back_to_menu).pack(side="right", padx=10)
 
-            # Canvas
+            # Canvas with border
             self.cell_size = 60
-            canvas_frame = tk.Frame(right_frame)
-            canvas_frame.pack()
+            canvas_frame = tk.Frame(right_frame, bg=self.MID_BG, bd=2, relief="raised")
+            canvas_frame.pack(pady=20)
             self.canvas = tk.Canvas(canvas_frame, width=9*self.cell_size, height=9*self.cell_size,
                                     bg=self.CANVAS_BG, highlightthickness=0)
             self.canvas.pack()
@@ -397,26 +386,33 @@ def launch_gui():
                                          fg=self.INCORRECT_COLOR, bg=self.MID_BG)
 
             # Bottom status
-            bottom_frame = tk.Frame(right_frame)
+            bottom_frame = tk.Frame(right_frame, bg=self.DARK_BG)
             bottom_frame.pack(pady=15)
-            self.score_label = tk.Label(bottom_frame, text="Score: 0", font=("Arial", 16, "bold"))
+            self.score_label = tk.Label(bottom_frame, text="Score: 0", font=("Arial", 16, "bold"), bg=self.DARK_BG, fg=self.TEXT_GRAY)
             self.score_label.pack(side="left", padx=30)
-            self.mistakes_label = tk.Label(bottom_frame, text="Mistakes: 0", font=("Arial", 16))
+            self.mistakes_label = tk.Label(bottom_frame, text="Mistakes: 0", font=("Arial", 16), bg=self.DARK_BG, fg=self.TEXT_GRAY)
             self.mistakes_label.pack(side="left", padx=30)
 
             self.canvas.bind("<Button-1>", self.on_cell_click)
             self.bind_all("<Key>", self.on_key_press)
-
+        def get_candidates(self, board, r, c):
+            """Return set of possible numbers for empty cell (r,c) on current board."""
+            if board[r, c] != 0:
+                return set()
+            possible = set(range(1, 10))
+            possible -= set(board[r, :])
+            possible -= set(board[:, c])
+            br, bc = 3 * (r // 3), 3 * (c // 3)
+            possible -= set(board[br:br + 3, bc:bc + 3].flatten())
+            return possible
         def start_game(self, diff_name):
             self.current_diff = diff_name
             self.menu_frame.pack_forget()
             self.game_frame.pack(expand=True, fill="both")
             self.new_game(diff_name)
-
         def back_to_menu(self):
             self.game_frame.pack_forget()
             self.menu_frame.pack(expand=True, fill="both")
-
         def toggle_pause(self):
             self.paused = not self.paused
             text = "Resume" if self.paused else "Pause"
@@ -427,28 +423,24 @@ def launch_gui():
             else:
                 self.paused_label.pack_forget()
                 self.canvas.pack()
-
         def toggle_notes(self):
             self.notes_mode = not self.notes_mode
             if self.notes_mode:
                 self.notes_button.config(text="NOTES MODE (N)", bg=self.HIGHLIGHT_ALIGN, font=("Arial", 14, "bold"))
             else:
                 self.notes_button.config(text="Answer Mode (N)", bg=self.BUTTON_BG, font=("Arial", 12))
-
         def update_timer(self):
             if hasattr(self, 'timer_running') and self.timer_running and not self.paused:
                 elapsed = int(time.time() - self.start_time)
                 m, s = divmod(elapsed, 60)
                 self.timer_label.config(text=f"Time: {m:02d}:{s:02d}")
             self.after(1000, self.update_timer)
-
         def update_remaining(self):
             for num in range(1, 10):
                 placed_correct = sum(1 for r in range(9) for c in range(9)
                                      if self.player[r, c] == num and self.solution[r, c] == num)
                 color = "gray" if placed_correct == 9 else self.REMAINING_COLOR
                 self.number_labels[num].config(fg=color)
-
         def draw_grid(self):
             self.canvas.delete("grid")
             self.selected_num = self.player[self.selected]  # get the current num located in (r,c)
@@ -459,9 +451,6 @@ def launch_gui():
                                         width=width, tags="grid")
                 self.canvas.create_line(0, i * self.cell_size, 9 * self.cell_size, i * self.cell_size, fill=fill_color,
                                         width=width, tags="grid")
-
-        # TODO: when a cell with an integer is highlighted, we need to highlight like integers across the board.
-        #      We also need to set correct answers to a standard color (same as generated cells) for consistency.
         def draw_numbers(self):
             self.canvas.delete("numbers")
             for r in range(9):
@@ -488,7 +477,6 @@ def launch_gui():
                             y = r * self.cell_size + offset_y
                             self.canvas.create_text(x, y, text=str(note), tags="numbers",
                                                     fill=self.PENCIL_COLOR, font=("Arial", 12))
-
         def highlight_selected(self):
             self.canvas.delete("highlight")
             r, c = self.selected
@@ -500,7 +488,6 @@ def launch_gui():
                 outline=outline_color, width=4, tags="highlight"
             )
             self.highlight_directionals()
-
         def highlight_directionals(self):
             self.canvas.delete("highlight_directionals")
             r, c = self.selected
@@ -529,8 +516,6 @@ def launch_gui():
                 fill=self.HIGHLIGHT_ALIGN, width=4, tags="highlight_directionals"
             )
             self.canvas.tag_lower("highlight_directionals")
-
-
         def new_game(self, diff_name):
             remove_count = self.remove_counts[diff_name]
             orig_flat, sol_flat = generate_puzzle(remove_count=remove_count)
@@ -563,7 +548,6 @@ def launch_gui():
             self.highlight_directionals()
             self.draw_numbers()
             self.update_remaining()
-
         def give_hint(self):
             empties = [(r, c) for r in range(9) for c in range(9) if self.player[r, c] == 0]
             if not empties:
@@ -577,7 +561,6 @@ def launch_gui():
             self.draw_numbers()
             self.update_remaining()
             self.check_win()
-
         def on_cell_click(self, event):
             if self.paused:
                 return
@@ -588,7 +571,6 @@ def launch_gui():
                 self.selected_num = self.player[self.selected]  # get the current num located in (0,0)
                 self.draw_numbers()
                 self.highlight_selected()
-
         def on_key_press(self, event):
             if self.paused:
                 return
@@ -615,7 +597,7 @@ def launch_gui():
                     if not self.notes_mode:
                         if self.original[r, c] == 0:
                             old_conflict = cell_has_conflict(self.player, r, c)
-                            candidates = len(get_candidates(self.player, r, c))
+                            candidates = len(self.get_candidates(self.player, r, c))
                             is_correct = num == self.solution[r, c]
                             self.player[r, c] = num
                             new_conflict = cell_has_conflict(self.player, r, c)
@@ -656,7 +638,6 @@ def launch_gui():
             if changed:
                 self.update_remaining()
                 self.check_win()
-
         def check_win(self):
             if np.array_equal(self.player, self.solution):
                 self.timer_running = False
@@ -674,7 +655,6 @@ def launch_gui():
                     line = f"{nickname}|{self.score}|{timestr}|{date}|{self.current_diff}\n"
                     with open("leaderboards.txt", "a") as f:
                         f.write(line)
-
         def show_leaderboard(self):
             top = Toplevel(self)
             top.title("Leaderboards")
@@ -724,7 +704,7 @@ def mode_selection():
         choice = input("> ").strip().lower()
 
         if choice in {'1', 'cli'}:
-            cli_main()
+            launch_cli()
         elif choice in {'2', 'gui'}:
             launch_gui()
         elif choice in {'q', 'quit', 'exit'}:
@@ -743,10 +723,11 @@ if __name__ == "__main__":
             launch_gui()
             args_counted = True
         elif '-c' in args or '--cli' in args:
-            cli_main()
+            launch_cli()
             args_counted = True
         else:
             print("Usage: python pydoku.py [-c | --cli | -g | --gui]")
             sys.exit(1)
+        mode_selection()
     else:
         mode_selection()
